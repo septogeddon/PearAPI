@@ -23,6 +23,12 @@ public class BukkitBridge implements Bridge, PluginMessageListener {
 	private final Network network;
 	private boolean queue;
 
+	/***
+	 * Initialize bukkit bridge
+	 * @param channel the PluginMessage channel
+	 * @param plugin the plugin owner
+	 * @param queue should queue when there is no player online?
+	 */
 	public BukkitBridge(String channel, Plugin plugin, boolean queue) {
 		this.channel = channel;
 		this.plugin = plugin;

@@ -24,6 +24,13 @@ public class BungeeCordBridge implements Listener, Bridge {
 	private final ServerInfo server;
 	private boolean queue;
 
+	/***
+	 * Initialize BungeeCordBridge
+	 * @param channel the PluginMessage channel
+	 * @param plugin the plugin owner
+	 * @param server the target server
+	 * @param queue should queue when there is no player?
+	 */
 	public BungeeCordBridge(String channel, Plugin plugin, ServerInfo server, boolean queue) {
 		this.channel = channel;
 		this.plugin = plugin;
