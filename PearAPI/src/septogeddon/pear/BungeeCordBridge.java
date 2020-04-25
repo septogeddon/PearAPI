@@ -5,28 +5,33 @@ import java.io.ByteArrayOutputStream;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 
-import org.bukkit.entity.Player;
-import org.bukkit.plugin.Plugin;
-import org.bukkit.plugin.messaging.Messenger;
-import org.bukkit.plugin.messaging.PluginMessageListener;
-
+import net.md_5.bungee.api.config.ServerInfo;
+import net.md_5.bungee.api.event.PluginMessageEvent;
+import net.md_5.bungee.api.plugin.Listener;
+import net.md_5.bungee.api.plugin.Plugin;
+import net.md_5.bungee.event.EventHandler;
 import septogeddon.pear.api.Bridge;
 import septogeddon.pear.api.Network;
 import septogeddon.pear.api.Packet;
 import septogeddon.pear.library.NetworkImpl;
 import septogeddon.pear.utils.SneakyThrow;
 
-public class BukkitBridge implements Bridge, PluginMessageListener {
+public class BungeeCordBridge implements Listener,Bridge {
 
 	private final String channel;
 	private final Plugin plugin;
 	private final Network network;
+	private final ServerInfo server;
 	private boolean queue;
-	public BukkitBridge(String channel,Plugin plugin,boolean queue) {
+	public BungeeCordBridge(String channel,Plugin plugin,ServerInfo server,boolean queue) {
 		this.channel = channel;
 		this.plugin = plugin;
 		network = new NetworkImpl(this);
 		this.queue = queue;
+		this.server = server;
+	}
+	public ServerInfo getServer() {
+		return server;
 	}
 	public boolean isQueue() {
 		return queue;
@@ -50,14 +55,7 @@ public class BukkitBridge implements Bridge, PluginMessageListener {
 		ByteArrayOutputStream output = new ByteArrayOutputStream();
 		try (ObjectOutputStream oos = new ObjectOutputStream(output)) {
 			oos.writeObject(obj);
-			if (queue) {
-				getPlugin().getServer().sendPluginMessage(getPlugin(), getChannel(), output.toByteArray());
-			} else {
-				for (Player p : getPlugin().getServer().getOnlinePlayers()) {
-					p.sendPluginMessage(getPlugin(), getChannel(), output.toByteArray());
-					break;
-				}
-			}
+			server.sendData(getChannel(), output.toByteArray(), queue);
 		} catch (Throwable t) {
 			SneakyThrow.sneakyThrow(t);
 		}
@@ -65,21 +63,19 @@ public class BukkitBridge implements Bridge, PluginMessageListener {
 
 	@Override
 	public void start() {
-		Messenger mes = getPlugin().getServer().getMessenger();
-		mes.registerIncomingPluginChannel(getPlugin(), getChannel(), this);
-		mes.registerOutgoingPluginChannel(getPlugin(), getChannel());
+		getPlugin().getProxy().registerChannel(getChannel());
+		getPlugin().getProxy().getPluginManager().registerListener(getPlugin(), this);
 	}
 
 	@Override
 	public void shutdown() {
-		Messenger mes = getPlugin().getServer().getMessenger();
-		mes.unregisterOutgoingPluginChannel(getPlugin(), getChannel());
-		mes.unregisterIncomingPluginChannel(getPlugin(), getChannel());
+		getPlugin().getProxy().unregisterChannel(getChannel());
+		getPlugin().getProxy().getPluginManager().unregisterListener(this);
 	}
-	@Override
-	public void onPluginMessageReceived(String arg0, Player arg1, byte[] arg2) {
-		if (arg0.equals(getChannel())) {
-			try (ObjectInputStream ois = new ObjectInputStream(new ByteArrayInputStream(arg2))) {
+	@EventHandler
+	public void onPluginMessageReceived(PluginMessageEvent e) {
+		if (e.getTag().equals(getChannel())) {
+			try (ObjectInputStream ois = new ObjectInputStream(new ByteArrayInputStream(e.getData()))) {
 				Object packet = ois.readObject();
 				if (packet instanceof Packet) {
 					network.dispatchPacket((Packet)packet);
@@ -91,5 +87,4 @@ public class BukkitBridge implements Bridge, PluginMessageListener {
 			}
 		}
 	}
-
 }

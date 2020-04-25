@@ -37,7 +37,7 @@ public class ConnectionImpl implements Connection {
 		return network.unwrap(network.sendPacket(new PacketFieldGet(objectId, info, type)).getValue());
 	}
 	@Override
-	public void setField(String info, Class<?> type, Object value) {
+	public void setField(String info, Object value, Class<?> type) {
 		value = network.wrap(value, type.getName());
 		network.sendPacket(new PacketFieldSet(info, value, objectId));
 	}

@@ -20,7 +20,7 @@ public class Var<T> {
 	}
 	
 	public T set(T t) {
-		connection.setField(name, declaring, t);
+		connection.setField(name, t, declaring);
 		return t;
 	}
 	

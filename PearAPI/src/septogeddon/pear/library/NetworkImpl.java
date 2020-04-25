@@ -130,12 +130,20 @@ public class NetworkImpl implements Network, Listener {
 			sendPacket(new PacketConnectionOpen(hint, object.getId()));
 			obj = new ReferencedObject(object.getId());
 		}
+		if (obj != null) {
+			TypeTranslator tr = translators.get(obj.getClass());
+			if (tr != null) obj = tr.wrap(obj);
+		}
 		return obj;
 	}
 	
 	public Object unwrap(Object obj) {
+		if (obj != null) {
+			TypeTranslator tr = translators.get(obj.getClass());
+			if (tr != null) obj = tr.unwrap(obj);
+		}
 		if (obj instanceof ReferencedObject) {
-			return this.getExistingConnection(((ReferencedObject) obj).getObjectId());
+			obj = this.getExistingConnection(((ReferencedObject) obj).getObjectId());
 		}
 		return obj;
 	}
