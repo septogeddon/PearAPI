@@ -14,6 +14,7 @@ import septogeddon.pear.api.Packet;
 import septogeddon.pear.library.NetworkImpl;
 import septogeddon.pear.packets.PacketDeliveredThrowable;
 import septogeddon.pear.utils.EncryptUtils;
+import septogeddon.pear.utils.Throw;
 
 public class SocketBridge implements Bridge {
 
@@ -39,8 +40,7 @@ public class SocketBridge implements Bridge {
 	}
 
 	protected void handle(Socket socket) {
-		try {
-			ObjectInputStream ois = new ObjectInputStream(socket.getInputStream());
+		try (ObjectInputStream ois = new ObjectInputStream(socket.getInputStream())) {
 			Packet packet = (Packet) ois.readObject();
 			String password = EncryptUtils.encrypt(token);
 			Object pass = ois.readObject();
@@ -50,14 +50,13 @@ public class SocketBridge implements Bridge {
 				send(new PacketDeliveredThrowable(new IllegalArgumentException("invalid token")).handleConversion()
 						.setRequestId(packet.getRequestId()).setMode(Packet.MODE_SERVER_TO_CLIENT));
 			}
-			ois.close();
 		} catch (Throwable t) {
-			t.printStackTrace();
+			Throw.throwable(t);
 		} finally {
 			try {
 				socket.close();
 			} catch (IOException e) {
-				e.printStackTrace();
+				Throw.throwable(e);
 			}
 		}
 	}
@@ -75,15 +74,15 @@ public class SocketBridge implements Bridge {
 	}
 
 	@Override
-	public void send(Object obj) {
+	public void send(Packet obj) {
 		try (Socket socket = new Socket(host, port)) {
 			socket.setKeepAlive(false);
 			try (ObjectOutputStream out = new ObjectOutputStream(socket.getOutputStream())) {
 				out.writeObject(obj);
 				out.writeObject(EncryptUtils.encrypt(token));
 			}
-		} catch (IOException e) {
-			e.printStackTrace();
+		} catch (Throwable e) {
+			getNetwork().cancelPacket(obj, e);
 		}
 	}
 

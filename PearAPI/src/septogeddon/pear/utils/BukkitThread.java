@@ -1,4 +1,4 @@
-package septogeddon.pear.library;
+package septogeddon.pear.utils;
 
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;

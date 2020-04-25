@@ -1,6 +1,6 @@
 package septogeddon.pear.api;
 
-public interface Connection {
+public interface Connection extends ObjectReference {
 
 	/***
 	 * Close an object and release resources for both peer

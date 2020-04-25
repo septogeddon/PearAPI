@@ -14,7 +14,7 @@ import septogeddon.pear.api.Bridge;
 import septogeddon.pear.api.Network;
 import septogeddon.pear.api.Packet;
 import septogeddon.pear.library.NetworkImpl;
-import septogeddon.pear.utils.SneakyThrow;
+import septogeddon.pear.utils.Throw;
 
 public class BukkitBridge implements Bridge, PluginMessageListener {
 
@@ -64,13 +64,13 @@ public class BukkitBridge implements Bridge, PluginMessageListener {
 					throw new IllegalArgumentException("invalid packet");
 				}
 			} catch (Throwable t) {
-				SneakyThrow.sneakyThrow(t);
+				Throw.throwable(t);
 			}
 		}
 	}
 
 	@Override
-	public void send(Object obj) {
+	public void send(Packet obj) {
 		ByteArrayOutputStream output = new ByteArrayOutputStream();
 		try (ObjectOutputStream oos = new ObjectOutputStream(output)) {
 			oos.writeObject(obj);
@@ -83,7 +83,7 @@ public class BukkitBridge implements Bridge, PluginMessageListener {
 				}
 			}
 		} catch (Throwable t) {
-			SneakyThrow.sneakyThrow(t);
+			getNetwork().cancelPacket(obj, t);
 		}
 	}
 

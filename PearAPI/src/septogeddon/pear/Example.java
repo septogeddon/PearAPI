@@ -1,7 +1,6 @@
 package septogeddon.pear;
 
 import septogeddon.pear.api.Bridge;
-import septogeddon.pear.api.Connection;
 import septogeddon.pear.api.Network;
 import septogeddon.pear.library.Var;
 
@@ -45,7 +44,8 @@ public class Example {
 		Bridge bridge = new SocketBridge("localhost", 25565, 25565, "this");
 		bridge.start();
 		Network net = bridge.getNetwork();
-		net.registerService("serviceExample", new TestClass());
+		TestClass t = new TestClass();
+		net.registerService("serviceExample", t);
 		net.start();
 		ITestClass test = net.createConnection("serviceExample", ITestClass.class);
 		String name = test.name().get();
@@ -53,9 +53,9 @@ public class Example {
 		System.out.println(test.printIt(name + ":x"));
 		System.out.println(test.another().get().nation().get());
 		IAnother another = test.other();
-		System.out.println(test.other().nation().get());
-		Connection.close(another);
+		System.out.println(another);
 		System.out.println(another.nation().get());
+		System.out.println(test.another().get().nation().get());
 		net.shutdown();
 	}
 

@@ -1,22 +1,24 @@
 package septogeddon.pear.library;
 
+import java.io.Externalizable;
+import java.io.IOException;
+import java.io.ObjectInput;
+import java.io.ObjectOutput;
 import java.lang.ref.Reference;
 import java.lang.ref.WeakReference;
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
-import java.util.List;
 
-import septogeddon.pear.utils.WeakArrayList;
+import septogeddon.pear.api.ObjectReference;
 
-public class ReflectedObject {
+public class ReflectedObject implements Externalizable, ObjectReference {
 
 	private long id;
-	private List<ReflectedObject> usedIds = new WeakArrayList<>();
-	private Reference<Object> value;
-	private Object strongReference;
-	private String serviceName;
-
+	private transient Reference<Object> value;
+	private transient Object strongReference;
+	private transient String serviceName;
+	public ReflectedObject() {};
 	public ReflectedObject(Object value, long id, String serviceName) {
 		if (serviceName == null) {
 			this.value = new WeakReference<>(value);
@@ -37,16 +39,12 @@ public class ReflectedObject {
 		return getValue().getClass().getMethod(method, param);
 	}
 
-	public long getId() {
+	public long getObjectId() {
 		return id;
 	}
 
 	public String getServiceName() {
 		return serviceName;
-	}
-
-	public List<ReflectedObject> getUsedIds() {
-		return usedIds;
 	}
 
 	public Object getValue() {
@@ -60,6 +58,16 @@ public class ReflectedObject {
 
 	public boolean shouldFlush() {
 		return getValue() == null;
+	}
+
+	@Override
+	public void writeExternal(ObjectOutput out) throws IOException {
+		out.writeLong(id);
+	}
+
+	@Override
+	public void readExternal(ObjectInput in) throws IOException, ClassNotFoundException {
+		id = in.readLong();
 	}
 
 }

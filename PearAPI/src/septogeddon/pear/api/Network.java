@@ -33,6 +33,13 @@ public interface Network extends AutoCloseable {
 	 * @param packet The packet instance
 	 */
 	public void dispatchPacket(Packet packet);
+	
+	/***
+	 * Destroy the packet wait line
+	 * @param packet
+	 * @param t
+	 */
+	public void cancelPacket(Packet packet,Throwable t);
 
 	/***
 	 * Get an existing object based by represented object id
@@ -113,5 +120,11 @@ public interface Network extends AutoCloseable {
 	 * @return
 	 */
 	public Object wrap(Object value, String hint);
+	
+	/***
+	 * Set the timeout for connection
+	 * @param millis time in milliseconds, <= 0 to disable
+	 */
+	public void setTimeout(long millis);
 
 }

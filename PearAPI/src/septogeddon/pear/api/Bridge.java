@@ -14,7 +14,7 @@ public interface Bridge {
 	 * 
 	 * @param obj
 	 */
-	public void send(Object obj);
+	public void send(Packet obj);
 
 	/***
 	 * Destroy the bridge including the network ({@link Network#shutdown()})

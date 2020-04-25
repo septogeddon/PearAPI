@@ -1,5 +1,6 @@
 package septogeddon.pear.library;
 
+import java.io.Externalizable;
 import java.io.Serializable;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
@@ -15,6 +16,7 @@ import septogeddon.pear.api.Bridge;
 import septogeddon.pear.api.Connection;
 import septogeddon.pear.api.ConnectionObject;
 import septogeddon.pear.api.Network;
+import septogeddon.pear.api.ObjectReference;
 import septogeddon.pear.api.Packet;
 import septogeddon.pear.api.TypeTranslator;
 import septogeddon.pear.library.RequestQueue.Queue;
@@ -85,6 +87,7 @@ public class NetworkImpl implements Network, Listener {
 		if (packet.getMode() == Packet.MODE_SERVER_TO_CLIENT) {
 			// act as client
 			requests.finish(packet);
+			this.flush();
 		} else {
 			try {
 				if (packet instanceof PacketRequestService) {
@@ -93,7 +96,7 @@ public class NetworkImpl implements Network, Listener {
 					if (obj == null) {
 						throw new NullPointerException("no such service");
 					}
-					serv.setObjectId(obj.getId());
+					serv.setObjectId(obj.getObjectId());
 					sendPacket(serv.handleConversion()); // callback packet
 					return;
 				}
@@ -150,11 +153,8 @@ public class NetworkImpl implements Network, Listener {
 					for (int i = services.size() - 1; i >= 0; i--) {
 						ReflectedObject obj = services.get(i);
 						for (long l : closed) {
-							if (obj.getId() == l) {
+							if (obj.getObjectId() == l) {
 								services.remove(i);
-								for (ReflectedObject o : obj.getUsedIds()) {
-									services.remove(o);
-								}
 								break;
 							}
 						}
@@ -168,11 +168,11 @@ public class NetworkImpl implements Network, Listener {
 	}
 
 	public void flush() {
-		for (int i = services.size() - 1; i >= 0; i++) {
+		for (int i = services.size() - 1; i >= 0; i--) {
 			ReflectedObject obj = services.get(i);
 			if (obj.shouldFlush()) {
 				services.remove(i);
-				sendPacket(new PacketReferenceClosed(obj.getId()));
+				sendPacket(new PacketReferenceClosed(obj.getObjectId()));
 			}
 		}
 	}
@@ -192,7 +192,7 @@ public class NetworkImpl implements Network, Listener {
 	public ReflectedObject getExistingService(long id) {
 		for (int i = services.size() - 1; i >= 0; i--) {
 			ReflectedObject obj = services.get(i);
-			if (obj.getId() == id)
+			if (obj.getObjectId() == id)
 				return obj;
 		}
 		return null;
@@ -226,9 +226,9 @@ public class NetworkImpl implements Network, Listener {
 						((ParameterizedType) m.getGenericReturnType()).getActualTypeArguments()[0]));
 			}
 		}
-		Object obj = Proxy.newProxyInstance(interf.getClassLoader(),
-				interf.equals(ConnectionObject.class) ? new Class<?>[] { ConnectionObject.class }
-						: new Class<?>[] { interf, ConnectionObject.class },
+		Object obj = Proxy.newProxyInstance(interf.isInterface() ? interf.getClassLoader() : ConnectionObject.class.getClassLoader(),
+				interf.isInterface() ? new Class<?>[] {interf, ConnectionObject.class} : 
+					new Class<?>[] {ConnectionObject.class},
 				(proxy, method, args) -> {
 					if (method.equals(ConnectionObject.GETTER_METHOD)) {
 						return con;
@@ -294,8 +294,8 @@ public class NetworkImpl implements Network, Listener {
 			if (tr != null)
 				obj = tr.unwrap(obj);
 		}
-		if (obj instanceof ReferencedObject) {
-			obj = this.getExistingConnection(((ReferencedObject) obj).getObjectId());
+		if (obj instanceof ObjectReference) {
+			obj = this.getExistingConnection(((ObjectReference) obj).getObjectId());
 		}
 		return obj;
 	}
@@ -309,23 +309,36 @@ public class NetworkImpl implements Network, Listener {
 		if (obj instanceof ConnectionObject) {
 			Connection conn = ((ConnectionObject) obj).ConnectionObject$getConnection();
 			if (conn.getNetwork() == this) { // same network, same ids
-				obj = new ReferencedObject(conn.getObjectId());
+				obj = conn;
 			}
-		}
-		if (obj != null && !(obj instanceof Serializable)) {
-			ReflectedObject object = this.registerService(null, obj);
-			if (ref != null) {
-				ref.getUsedIds().add(object);
-			}
-			sendPacket(new PacketConnectionOpen(hint, object.getId()));
-			obj = new ReferencedObject(object.getId());
 		}
 		if (obj != null) {
 			TypeTranslator tr = translators.get(obj.getClass());
 			if (tr != null)
 				obj = tr.wrap(obj);
 		}
+		for (int i = this.services.size()-1; i>=0; i--) {
+			ReflectedObject object = this.services.get(i);
+			if (object.getValue() == obj) {
+				return object;
+			}
+		}
+		if (obj != null && !(obj instanceof Serializable) && !(obj instanceof Externalizable)) {
+			ReflectedObject object = this.registerService(null, obj);
+			sendPacket(new PacketConnectionOpen(hint, object.getObjectId()));
+			obj = object;
+		}
 		return obj;
+	}
+
+	@Override
+	public void cancelPacket(Packet packet, Throwable t) {
+		requests.error(packet, t);
+	}
+
+	@Override
+	public void setTimeout(long millis) {
+		requests.setTimeout(millis);
 	}
 
 }
