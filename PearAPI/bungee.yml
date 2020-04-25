@@ -1,0 +1,4 @@
+name: PearAPI
+version: 1.0
+main: septogeddon.pear.BungeeCordPear
+author: Septogeddon

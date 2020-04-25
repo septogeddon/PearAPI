@@ -1,0 +1,4 @@
+name: PearAPI
+author: Septogeddon
+main: septogeddon.pear.BukkitPear
+version: 1.0
