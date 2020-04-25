@@ -24,11 +24,6 @@ public class FreeList implements List<Object> {
 	public FreeList(List<?> parent, boolean safe) {
 		this(parent, safe, false);
 	}
-	
-	public FreeList build(Object obj) {
-		this.add(obj);
-		return this;
-	}
 
 	@SuppressWarnings("unchecked")
 	public FreeList(List<?> parent, boolean safe, boolean compute) {
@@ -67,6 +62,11 @@ public class FreeList implements List<Object> {
 	@Override
 	public boolean addAll(int index, Collection<? extends Object> c) {
 		return this.list.addAll(index, c);
+	}
+
+	public FreeList build(Object obj) {
+		this.add(obj);
+		return this;
 	}
 
 	@Override

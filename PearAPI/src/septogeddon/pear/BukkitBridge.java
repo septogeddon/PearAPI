@@ -22,27 +22,45 @@ public class BukkitBridge implements Bridge, PluginMessageListener {
 	private final Plugin plugin;
 	private final Network network;
 	private boolean queue;
-	public BukkitBridge(String channel,Plugin plugin,boolean queue) {
+
+	public BukkitBridge(String channel, Plugin plugin, boolean queue) {
 		this.channel = channel;
 		this.plugin = plugin;
 		network = new NetworkImpl(this);
 		this.queue = queue;
 	}
-	public boolean isQueue() {
-		return queue;
-	}
-	public void setQueue(boolean queue) {
-		this.queue = queue;
-	}
-	public Plugin getPlugin() {
-		return plugin;
-	}
+
 	public String getChannel() {
 		return channel;
 	}
+
 	@Override
 	public Network getNetwork() {
 		return network;
+	}
+
+	public Plugin getPlugin() {
+		return plugin;
+	}
+
+	public boolean isQueue() {
+		return queue;
+	}
+
+	@Override
+	public void onPluginMessageReceived(String arg0, Player arg1, byte[] arg2) {
+		if (arg0.equals(getChannel())) {
+			try (ObjectInputStream ois = new ObjectInputStream(new ByteArrayInputStream(arg2))) {
+				Object packet = ois.readObject();
+				if (packet instanceof Packet) {
+					network.dispatchPacket((Packet) packet);
+				} else {
+					throw new IllegalArgumentException("invalid packet");
+				}
+			} catch (Throwable t) {
+				SneakyThrow.sneakyThrow(t);
+			}
+		}
 	}
 
 	@Override
@@ -63,11 +81,8 @@ public class BukkitBridge implements Bridge, PluginMessageListener {
 		}
 	}
 
-	@Override
-	public void start() {
-		Messenger mes = getPlugin().getServer().getMessenger();
-		mes.registerIncomingPluginChannel(getPlugin(), getChannel(), this);
-		mes.registerOutgoingPluginChannel(getPlugin(), getChannel());
+	public void setQueue(boolean queue) {
+		this.queue = queue;
 	}
 
 	@Override
@@ -76,20 +91,12 @@ public class BukkitBridge implements Bridge, PluginMessageListener {
 		mes.unregisterOutgoingPluginChannel(getPlugin(), getChannel());
 		mes.unregisterIncomingPluginChannel(getPlugin(), getChannel());
 	}
+
 	@Override
-	public void onPluginMessageReceived(String arg0, Player arg1, byte[] arg2) {
-		if (arg0.equals(getChannel())) {
-			try (ObjectInputStream ois = new ObjectInputStream(new ByteArrayInputStream(arg2))) {
-				Object packet = ois.readObject();
-				if (packet instanceof Packet) {
-					network.dispatchPacket((Packet)packet);
-				} else {
-					throw new IllegalArgumentException("invalid packet");
-				}
-			} catch (Throwable t) {
-				SneakyThrow.sneakyThrow(t);
-			}
-		}
+	public void start() {
+		Messenger mes = getPlugin().getServer().getMessenger();
+		mes.registerIncomingPluginChannel(getPlugin(), getChannel(), this);
+		mes.registerOutgoingPluginChannel(getPlugin(), getChannel());
 	}
 
 }

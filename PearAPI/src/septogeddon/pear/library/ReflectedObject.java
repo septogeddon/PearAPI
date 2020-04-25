@@ -16,7 +16,8 @@ public class ReflectedObject {
 	private Reference<Object> value;
 	private Object strongReference;
 	private String serviceName;
-	public ReflectedObject(Object value,long id,String serviceName) {
+
+	public ReflectedObject(Object value, long id, String serviceName) {
 		if (serviceName == null) {
 			this.value = new WeakReference<>(value);
 		} else {
@@ -25,37 +26,40 @@ public class ReflectedObject {
 		this.id = id;
 		this.serviceName = serviceName;
 	}
-	
-	public List<ReflectedObject> getUsedIds() {
-		return usedIds;
+
+	public Field findField(String fieldName)
+			throws IllegalArgumentException, IllegalAccessException, NoSuchFieldException, SecurityException {
+		return getValue().getClass().getField(fieldName);
 	}
-	
-	public String getServiceName() {
-		return serviceName;
+
+	public Method findMethod(String method, Class<?>[] param) throws IllegalAccessException, IllegalArgumentException,
+			InvocationTargetException, NoSuchMethodException, SecurityException {
+		return getValue().getClass().getMethod(method, param);
 	}
-	
+
 	public long getId() {
 		return id;
 	}
-	
-	public boolean shouldFlush() {
-		return getValue() == null;
+
+	public String getServiceName() {
+		return serviceName;
 	}
-	
+
+	public List<ReflectedObject> getUsedIds() {
+		return usedIds;
+	}
+
 	public Object getValue() {
 		return strongReference != null ? strongReference : value.get();
 	}
-	
-	public void setField(String fieldName,Object value) throws IllegalArgumentException, IllegalAccessException, NoSuchFieldException, SecurityException {
+
+	public void setField(String fieldName, Object value)
+			throws IllegalArgumentException, IllegalAccessException, NoSuchFieldException, SecurityException {
 		value.getClass().getField(fieldName).set(getValue(), value);
 	}
-	
-	public Field findField(String fieldName) throws IllegalArgumentException, IllegalAccessException, NoSuchFieldException, SecurityException {
-		return getValue().getClass().getField(fieldName);
+
+	public boolean shouldFlush() {
+		return getValue() == null;
 	}
-	
-	public Method findMethod(String method,Class<?>[] param) throws IllegalAccessException, IllegalArgumentException, InvocationTargetException, NoSuchMethodException, SecurityException {
-		return getValue().getClass().getMethod(method, param);
-	}
-	
+
 }

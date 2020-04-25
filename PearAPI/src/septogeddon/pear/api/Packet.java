@@ -18,56 +18,42 @@ public abstract class Packet implements Serializable {
 	public static final byte MODE_CLIENT_TO_SERVER = 1;
 	private byte mode = MODE_CLIENT_TO_SERVER;
 	private long requestId;
-	
+
 	/***
 	 * Does nothing at this condition
-	 * @return the same packet but released some unused resources before sending to another peer
+	 * 
+	 * @return the same packet but released some unused resources before sending to
+	 *         another peer
 	 * @deprecated Should be overridden
 	 */
 	@Deprecated
 	public Packet convertToResponse() {
 		return this;
 	}
-	
-	/***
-	 * The request id in the queue
-	 * @return the id
-	 * @see septogeddon.pear.library.RequestQueue 
-	 */
-	public final long getRequestId() {
-		return requestId;
-	}
-	
+
 	/***
 	 * The packet mode
+	 * 
 	 * @return mode
 	 */
 	public byte getMode() {
 		return mode;
 	}
-	
+
 	/***
-	 * Set the packet mode
-	 * @param mode
-	 * @return the packet instance
+	 * The request id in the queue
+	 * 
+	 * @return the id
+	 * @see septogeddon.pear.library.RequestQueue
 	 */
-	public Packet setMode(byte mode) {
-		this.mode = mode;
-		return this;
+	public final long getRequestId() {
+		return requestId;
 	}
-	
+
 	/***
-	 * Set the request id
-	 * @param id
-	 * @return the packet instance 
-	 */
-	public final Packet setRequestId(long id) {
-		requestId = id;
-		return this;
-	}
-	
-	/***
-	 * Handle conversion from Packet {@link MODE_CLIENT_TO_SERVER} to Packet {@link MODE_SERVER_TO_CLIENT}
+	 * Handle conversion from Packet {@link MODE_CLIENT_TO_SERVER} to Packet
+	 * {@link MODE_SERVER_TO_CLIENT}
+	 * 
 	 * @return the packet instance
 	 */
 	public final Packet handleConversion() {
@@ -75,5 +61,27 @@ public abstract class Packet implements Serializable {
 		packet.setMode(MODE_SERVER_TO_CLIENT);
 		return packet;
 	}
-	
+
+	/***
+	 * Set the packet mode
+	 * 
+	 * @param mode
+	 * @return the packet instance
+	 */
+	public Packet setMode(byte mode) {
+		this.mode = mode;
+		return this;
+	}
+
+	/***
+	 * Set the request id
+	 * 
+	 * @param id
+	 * @return the packet instance
+	 */
+	public final Packet setRequestId(long id) {
+		requestId = id;
+		return this;
+	}
+
 }

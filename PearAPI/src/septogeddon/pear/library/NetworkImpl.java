@@ -32,77 +32,30 @@ public class NetworkImpl implements Network, Listener {
 	private Bridge bridge;
 	private RequestQueue requests = new RequestQueue();
 	private List<ConnectionObject> connections = new ArrayList<>();
-	private Map<Class<?>,TypeTranslator> translators = new HashMap<>();
+	private Map<Class<?>, TypeTranslator> translators = new HashMap<>();
 	private List<ReflectedObject> services = new ArrayList<>();
 	private List<ClassAlias> aliases = new ArrayList<>();
 	private long lastId = 1;
+
 	public NetworkImpl(Bridge pear) {
 		bridge = pear;
 	}
-	@Override
-	public <T> T createConnection(String serviceId,Class<T> interf) {
-		PacketRequestService packet = sendPacket(new PacketRequestService(serviceId));
-		return this.registerConnection(packet.getObjectId(), interf);
-	}
-	
-	protected long nextId() {
-		return lastId++;
-	}
 
 	@Override
-	public ConnectionObject getExistingConnection(long objectId) {
-		for (int i = connections.size()-1; i >= 0; i--) {
-			ConnectionObject obj = connections.get(i);
-			Connection conn = obj.ConnectionObject$getConnection();
-			if (conn.getObjectId() == objectId) {
-				return obj;
-			}
+	public void close() {
+		long[] ids = new long[connections.size()];
+		for (int i = ids.length - 1; i >= 0; i--) {
+			ids[i] = connections.remove(i).ConnectionObject$getConnection().getObjectId();
 		}
-		return null;
+		sendPacket(new PacketConnectionClosed(ids));
 	}
 
 	@Override
-	public ReflectedObject registerService(String serviceId, Object obj) {
-		ReflectedObject object;
-		services.add(object=new ReflectedObject(obj, nextId(), serviceId));
-		return object;
+	public void closeConnection(long id) {
+		connections.removeIf(el -> el.ConnectionObject$getConnection().getObjectId() == id);
+		sendPacket(new PacketConnectionClosed(id));
 	}
 
-	public ReflectedObject getService(String serviceId) {
-		for (int i = services.size() - 1; i >= 0; i--) {
-			ReflectedObject obj = services.get(i);
-			if (serviceId.equals(obj.getServiceName())) {
-				return obj;
-			}
-		}
-		return null;
-	}
-
-	@Override
-	public void registerTypeTranslator(TypeTranslator tr, Class<?>... cl) {
-		for (Class<?> c : cl) translators.put(c, tr);
-	}
-
-	public TypeTranslator getTranslator(Class<?> cl) {
-		return translators.get(cl);
-	}
-
-	@Override
-	public <T extends Packet> T sendPacket(T packet) {
-		Queue<T> queue = requests.queue(packet);
-		bridge.send(packet);
-		return queue.get();
-	}
-	
-	protected Class<?> convertCrossOver(String className) throws ClassNotFoundException {
-		for (ClassAlias alias : aliases) {
-			if (alias.getAlias().getName().equals(className)) {
-				return alias.getOriginal();
-			}
-		}
-		return Class.forName(className);
-	}
-	
 	protected String convertCrossOver(Class<?> cl) {
 		for (ClassAlias alias : aliases) {
 			if (alias.getOriginal().equals(cl)) {
@@ -111,41 +64,20 @@ public class NetworkImpl implements Network, Listener {
 		}
 		return cl.getName();
 	}
-	public Object wrap(Object value,String hint) {
-		value = wrap(null,value,hint);
-		return value;
-	}
-	public Object wrap(ReflectedObject ref,Object obj,String hint) {
-		if (obj instanceof ConnectionObject) {
-			Connection conn = ((ConnectionObject) obj).ConnectionObject$getConnection();
-			if (conn.getNetwork() == this) { // same network, same ids
-				obj = new ReferencedObject(conn.getObjectId());
+
+	protected Class<?> convertCrossOver(String className) throws ClassNotFoundException {
+		for (ClassAlias alias : aliases) {
+			if (alias.getAlias().getName().equals(className)) {
+				return alias.getOriginal();
 			}
 		}
-		if (obj != null && !(obj instanceof Serializable)) {
-			ReflectedObject object = this.registerService(null, obj);
-			if (ref != null) {
-				ref.getUsedIds().add(object);
-			}
-			sendPacket(new PacketConnectionOpen(hint, object.getId()));
-			obj = new ReferencedObject(object.getId());
-		}
-		if (obj != null) {
-			TypeTranslator tr = translators.get(obj.getClass());
-			if (tr != null) obj = tr.wrap(obj);
-		}
-		return obj;
+		return Class.forName(className);
 	}
-	
-	public Object unwrap(Object obj) {
-		if (obj != null) {
-			TypeTranslator tr = translators.get(obj.getClass());
-			if (tr != null) obj = tr.unwrap(obj);
-		}
-		if (obj instanceof ReferencedObject) {
-			obj = this.getExistingConnection(((ReferencedObject) obj).getObjectId());
-		}
-		return obj;
+
+	@Override
+	public <T> T createConnection(String serviceId, Class<T> interf) {
+		PacketRequestService packet = sendPacket(new PacketRequestService(serviceId));
+		return this.registerConnection(packet.getObjectId(), interf);
 	}
 
 	@Override
@@ -156,7 +88,7 @@ public class NetworkImpl implements Network, Listener {
 		} else {
 			try {
 				if (packet instanceof PacketRequestService) {
-					PacketRequestService serv = (PacketRequestService)packet;
+					PacketRequestService serv = (PacketRequestService) packet;
 					ReflectedObject obj = getService(serv.getService());
 					if (obj == null) {
 						throw new NullPointerException("no such service");
@@ -166,7 +98,7 @@ public class NetworkImpl implements Network, Listener {
 					return;
 				}
 				if (packet instanceof PacketConnectionOpen) {
-					PacketConnectionOpen open = (PacketConnectionOpen)packet;
+					PacketConnectionOpen open = (PacketConnectionOpen) packet;
 					Class<?> interf = this.convertCrossOver(open.getClassName());
 					long id = open.getObjectId();
 					this.registerConnection(id, interf);
@@ -174,7 +106,7 @@ public class NetworkImpl implements Network, Listener {
 					return;
 				}
 				if (packet instanceof PacketFieldSet) {
-					PacketFieldSet set = (PacketFieldSet)packet;
+					PacketFieldSet set = (PacketFieldSet) packet;
 					ReflectedObject obj = getExistingService(set.getObjectId());
 					if (obj == null) {
 						throw new NullPointerException("no such object preserved");
@@ -184,18 +116,20 @@ public class NetworkImpl implements Network, Listener {
 					return;
 				}
 				if (packet instanceof PacketFieldGet) {
-					PacketFieldGet get = (PacketFieldGet)packet;
+					PacketFieldGet get = (PacketFieldGet) packet;
 					ReflectedObject obj = getExistingService(get.getObjectId());
-					if (obj == null) throw new NullPointerException("no such object preserved");
+					if (obj == null)
+						throw new NullPointerException("no such object preserved");
 					Field field = obj.findField(get.getField());
 					get.setValue(wrap(obj, field.get(obj.getValue()), get.getHintClassName()));
 					sendPacket(get.handleConversion());
 					return;
 				}
 				if (packet instanceof PacketMethodInvocation) {
-					PacketMethodInvocation met = (PacketMethodInvocation)packet;
+					PacketMethodInvocation met = (PacketMethodInvocation) packet;
 					ReflectedObject obj = getExistingService(met.getObjectId());
-					if (obj == null) throw new NullPointerException("no such object preserved");
+					if (obj == null)
+						throw new NullPointerException("no such object preserved");
 					Class<?>[] par = new Class<?>[met.getParameters().length];
 					for (int i = 0; i < par.length; i++) {
 						par[i] = convertCrossOver(met.getParameters()[i]);
@@ -213,7 +147,7 @@ public class NetworkImpl implements Network, Listener {
 				}
 				if (packet instanceof PacketConnectionClosed) {
 					long[] closed = ((PacketConnectionClosed) packet).getObjectIds();
-					for (int i = services.size()-1; i >= 0; i--) {
+					for (int i = services.size() - 1; i >= 0; i--) {
 						ReflectedObject obj = services.get(i);
 						for (long l : closed) {
 							if (obj.getId() == l) {
@@ -233,42 +167,8 @@ public class NetworkImpl implements Network, Listener {
 		}
 	}
 
-	public ReflectedObject getExistingService(long id) {
-		for (int i = services.size()-1; i >= 0; i--) {
-			ReflectedObject obj = services.get(i);
-			if (obj.getId() == id) return obj;
-		}
-		return null;
-	}
-
-	@Override
-	public void close() {
-		long[] ids = new long[connections.size()];
-		for (int i = ids.length-1; i >= 0; i--) {
-			ids[i] = connections.remove(i).ConnectionObject$getConnection().getObjectId();
-		}
-		sendPacket(new PacketConnectionClosed(ids));
-	}
-
-	@Override
-	public void closeConnection(long id) {
-		connections.removeIf(el->el.ConnectionObject$getConnection().getObjectId() == id);
-		sendPacket(new PacketConnectionClosed(id));
-	}
-
-	@Override
-	public void registerInterface(Class<?> cl, Class<?> alias) {
-		unregisterInterface(cl);
-		aliases.add(new ClassAlias(cl, alias));
-	}
-
-	@Override
-	public void unregisterInterface(Class<?> cl) {
-		aliases.removeIf(el->el.getOriginal().equals(cl));
-	}
-	
 	public void flush() {
-		for (int i = services.size()-1; i >= 0; i++) {
+		for (int i = services.size() - 1; i >= 0; i++) {
 			ReflectedObject obj = services.get(i);
 			if (obj.shouldFlush()) {
 				services.remove(i);
@@ -278,41 +178,154 @@ public class NetworkImpl implements Network, Listener {
 	}
 
 	@Override
-	public void start() {
+	public ConnectionObject getExistingConnection(long objectId) {
+		for (int i = connections.size() - 1; i >= 0; i--) {
+			ConnectionObject obj = connections.get(i);
+			Connection conn = obj.ConnectionObject$getConnection();
+			if (conn.getObjectId() == objectId) {
+				return obj;
+			}
+		}
+		return null;
+	}
+
+	public ReflectedObject getExistingService(long id) {
+		for (int i = services.size() - 1; i >= 0; i--) {
+			ReflectedObject obj = services.get(i);
+			if (obj.getId() == id)
+				return obj;
+		}
+		return null;
+	}
+
+	public ReflectedObject getService(String serviceId) {
+		for (int i = services.size() - 1; i >= 0; i--) {
+			ReflectedObject obj = services.get(i);
+			if (serviceId.equals(obj.getServiceName())) {
+				return obj;
+			}
+		}
+		return null;
+	}
+
+	public TypeTranslator getTranslator(Class<?> cl) {
+		return translators.get(cl);
+	}
+
+	protected long nextId() {
+		return lastId++;
+	}
+
+	@SuppressWarnings("unchecked")
+	public <T> T registerConnection(long id, Class<T> interf) {
+		Connection con = new ConnectionImpl(this, id);
+		Map<String, Var<?>> variables = new HashMap<>();
+		for (Method m : interf.getMethods()) {
+			if (Var.class.equals(m.getReturnType())) {
+				variables.put(m.getName(), new Var<>(con, m.getName(),
+						((ParameterizedType) m.getGenericReturnType()).getActualTypeArguments()[0]));
+			}
+		}
+		Object obj = Proxy.newProxyInstance(interf.getClassLoader(),
+				interf.equals(ConnectionObject.class) ? new Class<?>[] { ConnectionObject.class }
+						: new Class<?>[] { interf, ConnectionObject.class },
+				(proxy, method, args) -> {
+					if (method.equals(ConnectionObject.GETTER_METHOD)) {
+						return con;
+					}
+					if (Var.class.equals(method.getReturnType())) {
+						return variables.get(method.getName());
+					}
+					Class<?>[] parm = method.getParameterTypes();
+					String[] pars = new String[parm.length];
+					for (int i = 0; i < parm.length; i++) {
+						pars[i] = convertCrossOver(parm[i]);
+					}
+					Object val = con.invokeMethod(method.getName(), pars, args, method.getReturnType());
+					return unwrap(val);
+				});
+		connections.add((ConnectionObject) obj);
+		return (T) obj;
+	}
+
+	@Override
+	public void registerInterface(Class<?> cl, Class<?> alias) {
+		unregisterInterface(cl);
+		aliases.add(new ClassAlias(cl, alias));
+	}
+
+	@Override
+	public ReflectedObject registerService(String serviceId, Object obj) {
+		ReflectedObject object;
+		services.add(object = new ReflectedObject(obj, nextId(), serviceId));
+		return object;
+	}
+
+	@Override
+	public void registerTypeTranslator(TypeTranslator tr, Class<?>... cl) {
+		for (Class<?> c : cl)
+			translators.put(c, tr);
+	}
+
+	@Override
+	public <T extends Packet> T sendPacket(T packet) {
+		Queue<T> queue = requests.queue(packet);
+		bridge.send(packet);
+		return queue.get();
 	}
 
 	@Override
 	public void shutdown() {
 		close();
 	}
-	@SuppressWarnings("unchecked")
-	public <T> T registerConnection(long id, Class<T> interf) {
-		Connection con = new ConnectionImpl(this, id);
-		Map<String,Var<?>> variables = new HashMap<>();
-		for (Method m : interf.getMethods()) {
-			if (Var.class.equals(m.getReturnType())) {
-				variables.put(m.getName(),new Var<>(con, m.getName(), ((ParameterizedType)m.getGenericReturnType()).getActualTypeArguments()[0]));
+
+	@Override
+	public void start() {
+	}
+
+	@Override
+	public void unregisterInterface(Class<?> cl) {
+		aliases.removeIf(el -> el.getOriginal().equals(cl));
+	}
+
+	public Object unwrap(Object obj) {
+		if (obj != null) {
+			TypeTranslator tr = translators.get(obj.getClass());
+			if (tr != null)
+				obj = tr.unwrap(obj);
+		}
+		if (obj instanceof ReferencedObject) {
+			obj = this.getExistingConnection(((ReferencedObject) obj).getObjectId());
+		}
+		return obj;
+	}
+
+	public Object wrap(Object value, String hint) {
+		value = wrap(null, value, hint);
+		return value;
+	}
+
+	public Object wrap(ReflectedObject ref, Object obj, String hint) {
+		if (obj instanceof ConnectionObject) {
+			Connection conn = ((ConnectionObject) obj).ConnectionObject$getConnection();
+			if (conn.getNetwork() == this) { // same network, same ids
+				obj = new ReferencedObject(conn.getObjectId());
 			}
 		}
-		Object obj = Proxy.newProxyInstance(interf.getClassLoader(), 
-				interf.equals(ConnectionObject.class) ? new Class<?>[] {ConnectionObject.class} : 
-					new Class<?>[] {interf, ConnectionObject.class}, (proxy,method,args) -> {
-			if (method.equals(ConnectionObject.GETTER_METHOD)) {
-				return con;
+		if (obj != null && !(obj instanceof Serializable)) {
+			ReflectedObject object = this.registerService(null, obj);
+			if (ref != null) {
+				ref.getUsedIds().add(object);
 			}
-			if (Var.class.equals(method.getReturnType())) {
-				return variables.get(method.getName());
-			}
-			Class<?>[] parm = method.getParameterTypes();
-			String[] pars = new String[parm.length];
-			for (int i = 0; i < parm.length; i++) {
-				pars[i] = convertCrossOver(parm[i]);
-			}
-			Object val = con.invokeMethod(method.getName(), pars, args, method.getReturnType());
-			return unwrap(val);
-		});
-		connections.add((ConnectionObject)obj);
-		return (T)obj;
+			sendPacket(new PacketConnectionOpen(hint, object.getId()));
+			obj = new ReferencedObject(object.getId());
+		}
+		if (obj != null) {
+			TypeTranslator tr = translators.get(obj.getClass());
+			if (tr != null)
+				obj = tr.wrap(obj);
+		}
+		return obj;
 	}
 
 }

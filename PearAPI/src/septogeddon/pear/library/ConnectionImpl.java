@@ -9,19 +9,27 @@ import septogeddon.pear.packets.PacketMethodInvocation;
 public class ConnectionImpl implements Connection {
 	private long objectId;
 	private Network network;
-	public ConnectionImpl(Network net,long id) {
+
+	public ConnectionImpl(Network net, long id) {
 		network = net;
 		objectId = id;
 	}
+
 	@Override
-	public long getObjectId() {
-		return objectId;
+	public Object getField(String info, Class<?> type) {
+		return network.unwrap(network.sendPacket(new PacketFieldGet(objectId, info, type)).getValue());
 	}
 
 	@Override
 	public Network getNetwork() {
 		return network;
 	}
+
+	@Override
+	public long getObjectId() {
+		return objectId;
+	}
+
 	@Override
 	public Object invokeMethod(String name, String[] params, Object[] args, Class<?> returnType) {
 		if (args != null) {
@@ -29,13 +37,10 @@ public class ConnectionImpl implements Connection {
 				args[i] = network.wrap(args[i], params[i]);
 			}
 		}
-		PacketMethodInvocation packet = new PacketMethodInvocation(objectId,name,params,args, returnType);
+		PacketMethodInvocation packet = new PacketMethodInvocation(objectId, name, params, args, returnType);
 		return network.unwrap(network.sendPacket(packet).getValue());
 	}
-	@Override
-	public Object getField(String info,Class<?> type) {
-		return network.unwrap(network.sendPacket(new PacketFieldGet(objectId, info, type)).getValue());
-	}
+
 	@Override
 	public void setField(String info, Object value, Class<?> type) {
 		value = network.wrap(value, type.getName());

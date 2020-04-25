@@ -11,21 +11,40 @@ import septogeddon.pear.utils.SneakyThrow;
 
 public class RequestQueue {
 
-	private long lastRequestId = 1;
-	private List<Queue<?>> queues = new ArrayList<>();
-	public synchronized <T extends Packet> Queue<T> queue(T packet) {
-		Queue<T> queue = new Queue<>(lastRequestId,packet);
-		if (packet.getMode() == Packet.MODE_CLIENT_TO_SERVER) {
-			packet.setRequestId(lastRequestId++);
+	public static class Queue<T> {
+		private CompletableFuture<T> future = new CompletableFuture<>();
+		private long requestId;
+		private T packet;
+
+		public Queue(long id, T packet) {
+			this.requestId = id;
+			this.packet = packet;
 		}
-		queues.add(queue);
-		return queue;
+
+		public T get() {
+			try {
+				T object = future.get();
+				return object;
+			} catch (ExecutionException e) {
+				SneakyThrow.sneakyThrow(e.getCause() == null ? e : e.getCause());
+			} catch (InterruptedException e) {
+				SneakyThrow.sneakyThrow(e);
+			}
+			return null;
+		}
+
+		public T getPacket() {
+			return packet;
+		}
 	}
-	
+	private long lastRequestId = 1;
+
+	private List<Queue<?>> queues = new ArrayList<>();
+
 	@SuppressWarnings("unchecked")
 	public synchronized void finish(Packet packet) {
 		for (int i = queues.size() - 1; i >= 0; i--) {
-			Queue<Object> queue = (Queue<Object>)queues.get(i);
+			Queue<Object> queue = (Queue<Object>) queues.get(i);
 			if (queue.requestId == packet.getRequestId()) {
 				if (packet instanceof PacketDeliveredThrowable) {
 					queue.future.completeExceptionally(((PacketDeliveredThrowable) packet).getThrown());
@@ -35,31 +54,16 @@ public class RequestQueue {
 				return;
 			}
 		}
-		throw new IllegalStateException("cannot find packet with requestId "+packet.getRequestId());
+		throw new IllegalStateException("cannot find packet with requestId " + packet.getRequestId());
 	}
-	
-	public static class Queue<T> {
-		private CompletableFuture<T> future = new CompletableFuture<>();
-		private long requestId;
-		private T packet;
-		public Queue(long id, T packet) {
-			this.requestId = id;
-			this.packet = packet;
+
+	public synchronized <T extends Packet> Queue<T> queue(T packet) {
+		Queue<T> queue = new Queue<>(lastRequestId, packet);
+		if (packet.getMode() == Packet.MODE_CLIENT_TO_SERVER) {
+			packet.setRequestId(lastRequestId++);
 		}
-		public T getPacket() {
-			return packet;
-		}
-		public T get() {
-			try {
-				T object = future.get();
-				return object;
-			}  catch (ExecutionException e) {
-				SneakyThrow.sneakyThrow(e.getCause() == null ? e : e.getCause());
-			} catch (InterruptedException e) {
-				SneakyThrow.sneakyThrow(e);
-			}
-			return null;
-		}
+		queues.add(queue);
+		return queue;
 	}
-	
+
 }

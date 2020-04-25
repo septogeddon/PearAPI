@@ -10,6 +10,10 @@ import septogeddon.pear.BukkitPear;
 
 public class BukkitThread {
 
+	public static void async(Runnable r) {
+		Bukkit.getScheduler().runTaskAsynchronously(BukkitPear.getPlugin(BukkitPear.class), r);
+	}
+
 	public static <T> T get(Callable<T> t) {
 		try {
 			return Bukkit.getScheduler().callSyncMethod(BukkitPear.getPlugin(BukkitPear.class), t).get();
@@ -18,13 +22,9 @@ public class BukkitThread {
 			return null; // dead code
 		}
 	}
-	
+
 	public static void run(Runnable r) {
 		Bukkit.getScheduler().runTask(BukkitPear.getPlugin(BukkitPear.class), r);
 	}
-	
-	public static void async(Runnable r) {
-		Bukkit.getScheduler().runTaskAsynchronously(BukkitPear.getPlugin(BukkitPear.class), r);
-	}
-	
+
 }

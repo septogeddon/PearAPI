@@ -24,16 +24,54 @@ public class SocketBridge implements Bridge {
 	private String host;
 	private int port;
 	private String token;
-	public SocketBridge(String host,int port,int serverport,String token) {
+
+	public SocketBridge(String host, int port, int serverport, String token) {
 		this.serverport = serverport;
 		this.host = host;
 		this.port = port;
 		this.token = token;
 		network = new NetworkImpl(this);
 	}
+
 	@Override
 	public Network getNetwork() {
 		return network;
+	}
+
+	protected void handle(Socket socket) {
+		try {
+			ObjectInputStream ois = new ObjectInputStream(socket.getInputStream());
+			Packet packet = (Packet) ois.readObject();
+			String password = EncryptUtils.encrypt(token);
+			Object pass = ois.readObject();
+			if (pass.equals(password)) {
+				network.dispatchPacket(packet);
+			} else {
+				send(new PacketDeliveredThrowable(new IllegalArgumentException("invalid token")).handleConversion()
+						.setRequestId(packet.getRequestId()).setMode(Packet.MODE_SERVER_TO_CLIENT));
+			}
+			ois.close();
+		} catch (Throwable t) {
+			t.printStackTrace();
+		} finally {
+			try {
+				socket.close();
+			} catch (IOException e) {
+				e.printStackTrace();
+			}
+		}
+	}
+
+	protected void run() {
+		try {
+			socket = new ServerSocket(serverport);
+			while (!socket.isClosed()) {
+				Socket sock = socket.accept();
+				service.submit(() -> handle(sock));
+			}
+		} catch (Throwable t) {
+			t.printStackTrace();
+		}
 	}
 
 	@Override
@@ -50,47 +88,6 @@ public class SocketBridge implements Bridge {
 	}
 
 	@Override
-	public void start() {
-		service.submit(this::run);
-		network.start();
-	}
-	
-	protected void run() {
-		try {
-			socket = new ServerSocket(serverport);
-			while (!socket.isClosed()) {
-				Socket sock = socket.accept();
-				service.submit(()->handle(sock));
-			}
-		} catch (Throwable t) {
-			t.printStackTrace();
-		}
-	}
-	
-	protected void handle(Socket socket) {
-		try {
-			ObjectInputStream ois = new ObjectInputStream(socket.getInputStream());
-			Packet packet = (Packet) ois.readObject();
-			String password = EncryptUtils.encrypt(token);
-			Object pass = ois.readObject();
-			if (pass.equals(password)) {
-				network.dispatchPacket(packet);
-			} else {
-				send(new PacketDeliveredThrowable(new IllegalArgumentException("invalid token")).handleConversion().setRequestId(packet.getRequestId()).setMode(Packet.MODE_SERVER_TO_CLIENT));
-			}
-			ois.close();
-		} catch (Throwable t) {
-			t.printStackTrace();
-		} finally {
-			try {
-				socket.close();
-			} catch (IOException e) {
-				e.printStackTrace();
-			}
-		}
-	}
-
-	@Override
 	public void shutdown() {
 		network.close();
 		try {
@@ -98,6 +95,12 @@ public class SocketBridge implements Bridge {
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
+	}
+
+	@Override
+	public void start() {
+		service.submit(this::run);
+		network.start();
 	}
 
 }

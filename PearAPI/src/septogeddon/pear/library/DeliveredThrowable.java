@@ -10,5 +10,5 @@ public class DeliveredThrowable extends RuntimeException {
 	public DeliveredThrowable(Throwable cause) {
 		super(cause);
 	}
-	
+
 }

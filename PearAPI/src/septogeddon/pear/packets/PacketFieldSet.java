@@ -11,22 +11,11 @@ public class PacketFieldSet extends Packet {
 	private Object value;
 	private Long objectId;
 	private String info;
-	public PacketFieldSet(String info,Object value,long id) {
+
+	public PacketFieldSet(String info, Object value, long id) {
 		this.info = info;
 		this.value = value;
 		this.objectId = id;
-	}
-	
-	public String getField() {
-		return info;
-	}
-	
-	public Object getValue() {
-		return value;
-	}
-	
-	public long getObjectId() {
-		return objectId;
 	}
 
 	@Override
@@ -36,5 +25,17 @@ public class PacketFieldSet extends Packet {
 		info = null;
 		return this;
 	}
-	
+
+	public String getField() {
+		return info;
+	}
+
+	public long getObjectId() {
+		return objectId;
+	}
+
+	public Object getValue() {
+		return value;
+	}
+
 }

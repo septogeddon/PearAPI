@@ -16,38 +16,57 @@ import septogeddon.pear.api.Packet;
 import septogeddon.pear.library.NetworkImpl;
 import septogeddon.pear.utils.SneakyThrow;
 
-public class BungeeCordBridge implements Listener,Bridge {
+public class BungeeCordBridge implements Listener, Bridge {
 
 	private final String channel;
 	private final Plugin plugin;
 	private final Network network;
 	private final ServerInfo server;
 	private boolean queue;
-	public BungeeCordBridge(String channel,Plugin plugin,ServerInfo server,boolean queue) {
+
+	public BungeeCordBridge(String channel, Plugin plugin, ServerInfo server, boolean queue) {
 		this.channel = channel;
 		this.plugin = plugin;
 		network = new NetworkImpl(this);
 		this.queue = queue;
 		this.server = server;
 	}
-	public ServerInfo getServer() {
-		return server;
-	}
-	public boolean isQueue() {
-		return queue;
-	}
-	public void setQueue(boolean queue) {
-		this.queue = queue;
-	}
-	public Plugin getPlugin() {
-		return plugin;
-	}
+
 	public String getChannel() {
 		return channel;
 	}
+
 	@Override
 	public Network getNetwork() {
 		return network;
+	}
+
+	public Plugin getPlugin() {
+		return plugin;
+	}
+
+	public ServerInfo getServer() {
+		return server;
+	}
+
+	public boolean isQueue() {
+		return queue;
+	}
+
+	@EventHandler
+	public void onPluginMessageReceived(PluginMessageEvent e) {
+		if (e.getTag().equals(getChannel())) {
+			try (ObjectInputStream ois = new ObjectInputStream(new ByteArrayInputStream(e.getData()))) {
+				Object packet = ois.readObject();
+				if (packet instanceof Packet) {
+					network.dispatchPacket((Packet) packet);
+				} else {
+					throw new IllegalArgumentException("invalid packet");
+				}
+			} catch (Throwable t) {
+				SneakyThrow.sneakyThrow(t);
+			}
+		}
 	}
 
 	@Override
@@ -61,10 +80,8 @@ public class BungeeCordBridge implements Listener,Bridge {
 		}
 	}
 
-	@Override
-	public void start() {
-		getPlugin().getProxy().registerChannel(getChannel());
-		getPlugin().getProxy().getPluginManager().registerListener(getPlugin(), this);
+	public void setQueue(boolean queue) {
+		this.queue = queue;
 	}
 
 	@Override
@@ -72,19 +89,10 @@ public class BungeeCordBridge implements Listener,Bridge {
 		getPlugin().getProxy().unregisterChannel(getChannel());
 		getPlugin().getProxy().getPluginManager().unregisterListener(this);
 	}
-	@EventHandler
-	public void onPluginMessageReceived(PluginMessageEvent e) {
-		if (e.getTag().equals(getChannel())) {
-			try (ObjectInputStream ois = new ObjectInputStream(new ByteArrayInputStream(e.getData()))) {
-				Object packet = ois.readObject();
-				if (packet instanceof Packet) {
-					network.dispatchPacket((Packet)packet);
-				} else {
-					throw new IllegalArgumentException("invalid packet");
-				}
-			} catch (Throwable t) {
-				SneakyThrow.sneakyThrow(t);
-			}
-		}
+
+	@Override
+	public void start() {
+		getPlugin().getProxy().registerChannel(getChannel());
+		getPlugin().getProxy().getPluginManager().registerListener(getPlugin(), this);
 	}
 }

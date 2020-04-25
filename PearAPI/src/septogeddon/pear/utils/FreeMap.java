@@ -43,6 +43,11 @@ public class FreeMap implements Map<Object, Object> {
 		this((Map<?, ?>) parent, safeMode, compute);
 	}
 
+	public FreeMap build(Object key, Object value) {
+		this.put(key, value);
+		return this;
+	}
+
 	@Override
 	public void clear() {
 		this.map.clear();
@@ -70,11 +75,6 @@ public class FreeMap implements Map<Object, Object> {
 	@Override
 	public Set<Entry<Object, Object>> entrySet() {
 		return this.map.entrySet();
-	}
-	
-	public FreeMap build(Object key,Object value) {
-		this.put(key, value);
-		return this;
 	}
 
 	@Override
